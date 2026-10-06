@@ -18,12 +18,26 @@ KeTCindyJS が HTML を作る処理（KeTJS ボタン相当）を `tools/ketjs-b
 ### 使い方
 ```bash
 node tools/ketjs-build.mjs src/nyquist_g4.cs        # → build/html/nyquist_g4.html
+node tools/make-index.mjs build/html                # → build/html/index.html（教材一覧）
 node tools/ketjs-run.mjs build/html/nyquist_g4.html \
   --assert '=ReVal(1)|-0.005882|1e-5' --shot build/shot.png
 ```
 - `--assert '=式|期待値|許容誤差'`: CindyScript の式の値を照合する（失敗で終了コード 1）
 - `--eval '=式'` / `--eval 'コード;'`: 式の値の表示、またはコードの実行
-- コンソール出力（`println`）と JS 例外を表示し、スクリーンショットを保存する
+- `--viewport 390x844`: 画面サイズを指定する。幅 768 未満はスマートフォンとして扱い、タッチ操作も有効にする
+- コンソール出力（`println`）と JS 例外を表示し、ページ全体のスクリーンショットを保存する
+- ページ幅が画面幅を超える（横スクロールが出る）と失敗にする
+
+### 公開ページの構成
+- `index.html`（教材一覧）と各教材ページは、スマートフォン・タブレットでも表示できる。
+  キャンバスは画面幅に合わせて縦横比を保ったまま縮み、PC では KeTJS 既定の 742×526 で表示する。
+- 各教材ページの上部にパンくずリスト（教材一覧 ／ 教材名）を表示する。
+- 教材ページの見出しは、スクリプト先頭などに書いた `// @title 見出し` から取る（なければファイル名）。
+  コメント行なので Cinderella 上の動作には影響しない。
+- 共通のスタイルと校章は `assets/` にあり、ビルド時に `build/html/assets/` へコピーされる。
+  配色・書体・校章は [NITYC-MCC-Tools](https://github.com/atsuki-seo/NITYC-MCC-Tools) の授業資料に合わせている。
+- 狭い画面ではキャンバス内の文字（`Letter` など）は縮まず KeTJS と同じ大きさのままなので、
+  文字が密集している教材では重なって見えることがある。
 
 ### 注意（実際の KeTJS 出力との差）
 - Cinderella の作図要素（`.cdy` の点など）は、スクリプトの `Putpoint` / `Slider` から推定して宣言している。
@@ -32,3 +46,8 @@ node tools/ketjs-run.mjs build/html/nyquist_g4.html \
   （`File > Export to CindyJS` → KeTJS / KeTJSoff）。
 
 参考: [KeTCindyJS の使い方](https://ctan.csail.mit.edu/graphics/ketcindy/ketcindyfolder/work/samples/s16ketJSmisc/howtouseketcindyjsE.txt)
+
+## 校章について
+
+`assets/kousho.svg` は弓削商船高等専門学校の校章で、著作権は同校に帰属する。
+校章の使用は同校の教育活動に関わる資料に限られる。

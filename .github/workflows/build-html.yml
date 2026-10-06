@@ -41,6 +41,9 @@ jobs:
             node tools/ketjs-build.mjs "$f" build/html
           done
 
+      - name: Make index.html
+        run: node tools/make-index.mjs build/html
+
       # GitHub のランナーに入っている Google Chrome で開き、値を照合する
       - name: Verify in headless Chrome
         env:
@@ -54,8 +57,19 @@ jobs:
             --assert '=Gain(1)|0.024254|1e-5' \
             --assert '=length(ptList)|1501|0'
 
-      - name: Make index.html
-        run: node tools/make-index.mjs build/html
+      # スマートフォン・タブレットの画面幅で全ページを開き、横スクロールが出ないことを確かめる
+      - name: Verify layout on phone / tablet
+        env:
+          CHROME: /usr/bin/google-chrome
+          CHROME_ARGS: --no-sandbox
+        run: |
+          mkdir -p build/shots
+          for f in build/html/*.html; do
+            name=$(basename "$f" .html)
+            for v in 390x844 820x1180; do
+              node tools/ketjs-run.mjs "$f" --viewport "$v" --shot "build/shots/$name-$v.png"
+            done
+          done
 
       - uses: actions/upload-artifact@v4
         with:
@@ -74,7 +88,9 @@ jobs:
         if: always()
         with:
           name: screenshot
-          path: build/shot.png
+          path: |
+            build/shot.png
+            build/shots/
           if-no-files-found: ignore
 
   # GitHub Pages へ公開する（main へのプッシュ / 手動実行のときだけ）

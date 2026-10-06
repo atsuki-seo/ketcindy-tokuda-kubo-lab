@@ -3,8 +3,11 @@
 //   - コンソール出力（println）と JS 例外を収集して表示
 //   - スクリーンショットを保存
 //   - --eval で CindyScript を実行して値を取り出せる（例: --eval 'Gain(1)'）
+//   - --viewport 390x844 で画面サイズを指定する（幅 768 未満はスマートフォンとしてタッチ操作も有効にする）
+//   - 横スクロールが出る（ページ幅が画面幅を超える）と失敗にする
 //
 // 使い方: node tools/ketjs-run.mjs build/html/nyquist_g4.html [--shot build/shot.png] [--eval EXPR]... [--wait 3000]
+//          [--viewport WxH]
 // 環境変数: CHROME（既定 /Applications/Google Chrome.app/...）
 
 import { spawn } from "node:child_process";
@@ -21,8 +24,9 @@ const opt = (name) => {
 const evals = args.flatMap((a, i) => (a === "--eval" ? [args[i + 1]] : []));
 const shot = opt("--shot") ?? "build/shot.png";
 const wait = Number(opt("--wait") ?? 3000);
-if (!file) {
-  console.error("usage: ketjs-run.mjs <file.html> [--shot png] [--eval EXPR]... [--wait ms]");
+const viewport = opt("--viewport")?.match(/^(\d+)x(\d+)$/);
+if (!file || (opt("--viewport") && !viewport)) {
+  console.error("usage: ketjs-run.mjs <file.html> [--shot png] [--eval EXPR]... [--wait ms] [--viewport WxH]");
   process.exit(2);
 }
 
@@ -93,6 +97,12 @@ const send = (method, params = {}) =>
 await send("Runtime.enable");
 await send("Log.enable");
 await send("Page.enable");
+if (viewport) {
+  const [width, height] = [Number(viewport[1]), Number(viewport[2])];
+  const mobile = width < 768;
+  await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: mobile ? 2 : 1, mobile });
+  if (mobile) await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+}
 await send("Page.navigate", { url: `file://${resolve(file)}` });
 await new Promise((r) => setTimeout(r, wait));
 
@@ -126,7 +136,32 @@ for (const spec of args.flatMap((a, i) => (a === "--assert" ? [args[i + 1]] : []
   if (!ok) assertFailures.push(spec);
 }
 
-const png = await send("Page.captureScreenshot", { format: "png" });
+// レイアウト: 画面幅・ページ幅・キャンバスの大きさを表示し、横スクロールが出ていないか確かめる
+const layout = JSON.parse(
+  (
+    await send("Runtime.evaluate", {
+      expression: `JSON.stringify((() => {
+        const c = document.querySelector("#CSCanvas canvas")?.getBoundingClientRect();
+        return { view: innerWidth, page: document.documentElement.scrollWidth,
+                 canvas: c ? Math.round(c.width) + "x" + Math.round(c.height) : null };
+      })())`,
+      returnByValue: true,
+    })
+  ).result.result.value,
+);
+const overflow = layout.page > layout.view;
+console.log(
+  `layout ${overflow ? "NG" : "OK"}: 画面幅 ${layout.view}px / ページ幅 ${layout.page}px` +
+    (layout.canvas ? ` / キャンバス ${layout.canvas}` : ""),
+);
+
+// ページ全体を撮る（見出しの下にあるキャンバスまで入るように）
+const { cssContentSize } = (await send("Page.getLayoutMetrics")).result;
+const png = await send("Page.captureScreenshot", {
+  format: "png",
+  captureBeyondViewport: true,
+  clip: { x: 0, y: 0, width: cssContentSize.width, height: cssContentSize.height, scale: 1 },
+});
 writeFileSync(shot, Buffer.from(png.result.data, "base64"));
 
 ws.close();
@@ -142,5 +177,5 @@ console.log(`--- console / errors (${logs.length} 件, 種類 ${counts.size}) --
 for (const [k, n] of counts) console.log(n > 1 ? `${k}  (x${n})` : k);
 for (const [e, v] of results) console.log(`eval ${e} => ${v}`);
 console.log(`screenshot: ${shot}`);
-// 終了コード: JS 例外 / assert 失敗で 1。console.error は KeTCindy 由来の既知の警告が混じるため表示のみ。
-process.exit(logs.some((l) => l.startsWith("[exception]")) || assertFailures.length ? 1 : 0);
+// 終了コード: JS 例外 / assert 失敗 / 横スクロールで 1。console.error は KeTCindy 由来の既知の警告が混じるため表示のみ。
+process.exit(logs.some((l) => l.startsWith("[exception]")) || assertFailures.length || overflow ? 1 : 0);

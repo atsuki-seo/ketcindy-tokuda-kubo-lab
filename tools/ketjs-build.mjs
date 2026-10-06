@@ -8,10 +8,14 @@
 //
 // 使い方: node tools/ketjs-build.mjs src/nyquist_g4.cs [出力ディレクトリ(既定 build/html)]
 // 環境変数: KETCINDY_HOME（既定 ~/ketcindy）
+//
+// ページの見出しは、スクリプト中の「// @title 見出し」行から取る（なければファイル名）。
+// コメント行なので Cinderella 上の動作には影響しない。
 
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
+import { INDEX_TITLE, breadcrumb, copyAssets, docFoot, docHead, escapeHtml, headCommon, pageTitle } from "./site.mjs";
 
 const HOME = process.env.KETCINDY_HOME ?? join(homedir(), "ketcindy");
 const SCRIPTS = join(HOME, "ketcindyfolder", "scripts");
@@ -97,7 +101,11 @@ function extractAll(name) {
   for (const dep of e.slice(4)) extractAll(dep);
 }
 
-const drawLines = filterKetjs(readLines(srcPath));
+const srcLines = readLines(srcPath);
+const title =
+  srcLines.map((l) => l.match(/^\s*\/\/\s*@title\s+(.+?)\s*$/)?.[1]).find(Boolean) ??
+  basename(srcPath).replace(/\.cs$/, "");
+const drawLines = filterKetjs(srcLines);
 for (const fn of extractFunNames(drawLines)) extractAll(fn);
 
 const libLines = Object.fromEntries(
@@ -133,13 +141,18 @@ const geometry = [
   ),
 ];
 
+// キャンバスの基準サイズ（KeTJS の既定値）。PC ではこの大きさで表示し、
+// 狭い画面では縦横比を保ったまま縮める（assets/site.css の .stage を参照）。
+const CANVAS_W = 742;
+const CANVAS_H = 526;
+const draggable = pointNames.size > 0;
+
 const html = `<!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>${basename(srcPath)}</title>
+${headCommon()}
+<title>${escapeHtml(pageTitle(title))}</title>
     <style type="text/css">
-        * { margin: 0px; padding: 0px; }
         #CSConsole { background-color: #FAFAFA; border-top: 1px solid #333333; bottom: 0px;
             height: 200px; overflow-y: scroll; position: fixed; width: 100%; }
     </style>
@@ -162,8 +175,7 @@ var cdy = CindyJS({
   ],
   ports: [{
     id: "CSCanvas",
-    width: 742,
-    height: 526,
+    fill: "parent",
     transform: [{visibleRect: [-5.0, 5.0, 5.0, -5.0]}],
     background: "rgb(247,247,247)"
   }],
@@ -172,11 +184,26 @@ var cdy = CindyJS({
     </script>
 </head>
 <body>
+<div class="wrap">
+
+${breadcrumb([[INDEX_TITLE, "index.html"], [title]])}
+
+${docHead(title)}
+
+<main>
+  <div class="stage" style="--stage-max: ${CANVAS_W}px; --stage-ratio: ${CANVAS_W} / ${CANVAS_H};">
     <div id="CSCanvas"></div>
+  </div>${draggable ? `\n  <p class="stage-note">スライダーや点は、ドラッグ（スマートフォン・タブレットではタッチ）で動かせます。</p>` : ""}
+</main>
+
+${docFoot({ backToIndex: true })}
+
+</div>
 </body>
 </html>
 `;
 
+copyAssets(outDir);
 mkdirSync(join(outDir, "ketcindyjs"), { recursive: true });
 for (const f of ["Cindy.js", "Cindy.js.map", "CindyJS.css", "katex-plugin.js", "webfont.js"]) {
   const p = join(SCRIPTS, "ketcindyjs", f);
