@@ -1,0 +1,68 @@
+name: Build HTML
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # KeTCindy 一式（KeTCindyJS のライブラリと Cindy.js）。CTAN の配布 zip を使う。
+      - name: Cache KeTCindy
+        id: cache-ketcindy
+        uses: actions/cache@v4
+        with:
+          path: ~/ketcindy
+          key: ketcindy-ctan-v1
+
+      - name: Download KeTCindy
+        if: steps.cache-ketcindy.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL --retry 3 -o ketcindy.zip https://ctan.csail.mit.edu/graphics/ketcindy.zip \
+            || curl -fsSL --retry 3 -L -o ketcindy.zip https://mirrors.ctan.org/graphics/ketcindy.zip
+          unzip -q ketcindy.zip -d "$RUNNER_TEMP/ketcindy-unzip"
+          mv "$RUNNER_TEMP/ketcindy-unzip/ketcindy" ~/ketcindy
+
+      - name: Build HTML
+        run: |
+          for f in src/*.cs; do
+            node tools/ketjs-build.mjs "$f" build/html
+          done
+
+      # GitHub のランナーに入っている Google Chrome で開き、値を照合する
+      - name: Verify in headless Chrome
+        env:
+          CHROME: /usr/bin/google-chrome
+          CHROME_ARGS: --no-sandbox
+        run: |
+          node tools/ketjs-run.mjs build/html/nyquist_g4.html \
+            --shot build/shot.png \
+            --assert '=ReVal(1)|-0.005882|1e-5' \
+            --assert '=ImVal(1)|-0.023529|1e-5' \
+            --assert '=Gain(1)|0.024254|1e-5' \
+            --assert '=length(ptList)|1501|0'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: html
+          path: build/html
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshot
+          path: build/shot.png
+          if-no-files-found: ignore

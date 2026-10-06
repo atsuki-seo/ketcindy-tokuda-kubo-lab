@@ -38,6 +38,8 @@ const proc = spawn(
     "--remote-debugging-port=0",
     `--user-data-dir=${profile}`,
     "--window-size=900,700",
+    // CI などで追加のフラグが要る場合（例: CHROME_ARGS="--no-sandbox"）
+    ...(process.env.CHROME_ARGS ? process.env.CHROME_ARGS.split(/\s+/).filter(Boolean) : []),
     "about:blank",
   ],
   { stdio: ["ignore", "ignore", "pipe"] },
