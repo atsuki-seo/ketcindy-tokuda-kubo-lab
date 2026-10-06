@@ -56,6 +56,12 @@ jobs:
             --assert '=ImVal(1)|-0.023529|1e-5' \
             --assert '=Gain(1)|0.024254|1e-5' \
             --assert '=length(ptList)|1501|0'
+          # 入力欄の式（* を省略した書き方）で G(s) が変わること。4/((1+j)(2+j)) = 0.4 - 1.2j
+          node tools/ketjs-run.mjs build/html/nyquist_g4.html \
+            --shot build/shot-input.png \
+            --eval 'Text0.currenttext="4/((s+1)(s+2))";' \
+            --assert '=ReVal(1)|0.4|1e-6' \
+            --assert '=ImVal(1)|-1.2|1e-6'
 
       # スマートフォン・タブレットの画面幅で全ページを開き、横スクロールが出ないことを確かめる
       - name: Verify layout on phone / tablet

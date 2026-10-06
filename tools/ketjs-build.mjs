@@ -126,22 +126,53 @@ initLines.push("Ketcindyjsfigure=0;", "Ketcindyjsscale=1;");
 // SW/NE は Setwindow、Text0 は Textedit(0,...) が参照する。
 // JS 版の Putpoint / Slider は点を作らず既存の点を動かすだけなので（createpoint は no ketjs 区間）、
 // Cinderella では作図として存在する点を、スクリプトの記述から推定して Free 点として宣言する。
+// 点の初期位置は、Cinderella でスクリプトが初めて点を作るときの位置に合わせる
+// （Putpoint は第 2 引数、Slider はつまみを両端の中点、"A-C-B" 形式の両端はそれぞれの端）。
 const drawCode = drawLines.join("\n");
+const num = "\\s*(-?[\\d.]+)\\s*";
+const pair = `\\[${num},${num}\\]`;
+const toPair = (a, b) => [Number(a), Number(b)];
 const pointNames = new Set();
+const pointPos = new Map();
+const sliderEnds = [];
 for (const m of drawCode.matchAll(/\b(?:Putpoint|Slider)\(\s*"([^"]+)"/g)) {
   for (const n of m[1].split("-")) pointNames.add(n);
 }
+for (const m of drawCode.matchAll(new RegExp(`\\bPutpoint\\(\\s*"([^"]+)"\\s*,\\s*${pair}`, "g"))) {
+  if (!pointPos.has(m[1])) pointPos.set(m[1], toPair(m[2], m[3]));
+}
+for (const m of drawCode.matchAll(new RegExp(`\\bSlider\\(\\s*"([^"]+)"\\s*,\\s*${pair}\\s*,\\s*${pair}`, "g"))) {
+  const [p1, p2] = [toPair(m[2], m[3]), toPair(m[4], m[5])];
+  const mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+  const names = m[1].split("-");
+  const pos = names.length === 3 ? [p1, mid, p2] : [mid];
+  names.forEach((n, i) => pointPos.set(n, pos[i]));
+  sliderEnds.push(p1, p2);
+}
+
+// 表示範囲: Setwindow の範囲とスライダー全体が入るようにし、軸のラベル（Im など）が切れないよう余白を足す。
+// Cinderella では作図画面の表示範囲が KeTJS に引き継がれるが、ここでは .cdy がないのでスクリプトから決める。
+const win = drawCode.match(new RegExp(`\\bSetwindow\\(\\s*${pair}\\s*,\\s*${pair}`));
+const [xmin, xmax, ymin, ymax] = win ? [1, 2, 3, 4].map((i) => Number(win[i])) : [-5, 5, -5, 5];
+const VIEW_MARGIN = 0.5;
+const view = {
+  left: Math.min(xmin, ...sliderEnds.map((p) => p[0])) - VIEW_MARGIN,
+  right: Math.max(xmax, ...sliderEnds.map((p) => p[0])) + VIEW_MARGIN,
+  bottom: Math.min(ymin, ...sliderEnds.map((p) => p[1])) - VIEW_MARGIN,
+  top: Math.max(ymax, ...sliderEnds.map((p) => p[1])) + VIEW_MARGIN,
+};
 const textNos = new Set([...drawCode.matchAll(/\bText(\d+)\b/g)].map((m) => m[1]));
 for (const m of drawCode.matchAll(/\bTextedit\(\s*(\d+)/g)) textNos.add(m[1]);
 
 const geometry = [
   `{name: "SW", type: "Free", pos: [-5.0, -5.0, 1.0], color: [1.0,1.0,1.0], labeled: false, size: 2.0, border: false }`,
   `{name: "NE", type: "Free", pos: [5.0, 5.0, 1.0], color: [1.0,1.0,1.0], labeled: false, size: 2.0, border: false }`,
-  ...[...pointNames].map(
-    (n) => `{name: "${n}", type: "Free", pos: [0.0, 0.0, 1.0], color: [1.0,0.0,0.0], labeled: false, size: 3.0, border: true }`,
-  ),
+  ...[...pointNames].map((n) => {
+    const [x, y] = pointPos.get(n) ?? [0, 0];
+    return `{name: "${n}", type: "Free", pos: [${x}, ${y}, 1.0], color: [1.0,0.0,0.0], labeled: false, size: 3.0, border: true }`;
+  }),
   ...[...textNos].map(
-    (n) => `{name: "Text${n}", type: "EditableText", pos: [0.0, -4.0, 1.0], text: "", minwidth: 120 }`,
+    (n) => `{name: "Text${n}", type: "EditableText", pos: [0.0, -4.0, 1.0], text: "", minwidth: 220 }`,
   ),
 ];
 
@@ -181,7 +212,7 @@ var cdy = CindyJS({
   ports: [{
     id: "CSCanvas",
     fill: "parent",
-    transform: [{visibleRect: [-5.0, 5.0, 5.0, -5.0]}],
+    transform: [{visibleRect: [${view.left}, ${view.top}, ${view.right}, ${view.bottom}]}],
     background: "rgb(247,247,247)"
   }],
   csconsole: false

@@ -8,13 +8,39 @@ K = 5*D.x;
 // ==========================================
 // 【1. 伝達関数 G(s) の定義】
 // ==========================================
-Text0.xy=[2,-4];
-Expr([[1.68,-4],"w","G(s)="]);
-// テキストボックスの初期値
-subsedit(0,"0");
-str = Textedit(0,"");
-//G(s) := parse(str);
-G(s) := 1/((s+1)*(s+2)*(s+3)*(s+4));
+Text0.xy=[2,-4.6];
+Expr([[1.68,-4.6],"w","G(s)="]);
+// 入力欄の式で G(s) を定義する。掛け算の * は省略してよい（例: 4/((s+1)(s+2))）
+Gdefault = "1/((s+1)*(s+2)*(s+3)*(s+4))";
+// 入力欄の * を省略した掛け算に * を補う（")(" "2s" "s(" など）
+Insertmul(str):=(
+ regional(out,c,prev);
+ out = ""; prev = "";
+ forall(1..length(str),
+   c = substring(str,#-1,#);
+   if(c != " ",
+     if(prev != "" & indexof(")s0123456789",prev) > 0 & indexof("(s",c) > 0,
+       out = out + "*";
+     );
+     out = out + c;
+     prev = c;
+   );
+ );
+ out;
+);
+str = Textedit(0);
+if(!isstring(str), str = "");
+// 入力欄が空のときは既定の式を使う（HTML 版では入力欄にも既定の式を入れる）
+//if(str == "", Text0.currenttext = Gdefault); //only ketjs
+if(str == "", str = Gdefault);
+Gstr = Insertmul(str);
+// 式として読めないときは既定の式で描き、そのことを表示する
+Gtry(s) := parse(Gstr);
+tmp = Gtry(0.37 + 0.71*i);
+Gok = false;
+if(isreal(re(tmp)) & isreal(im(tmp)), Gok = true);
+if(!Gok, Gstr = Gdefault);
+parse("G(s):=" + Gstr + ";");
 // ==========================================
 // 【画面の設定】
 // ==========================================
@@ -140,6 +166,8 @@ ySlider = ImVal(wSlider);
 pSlider = [xSlider,ySlider];
 Putpoint("AA",[10,10]);
 AA.xy=pSlider*K;
+// 原点と赤い点を結ぶ線分（G(jω) を表すベクトル）
+Listplot("OA",[[0,0],pSlider*K],["Color=red"]);
 
 //println(sgsliderPoint);
 //pointdata("1",AA,["Size=5","Color=red"]);
@@ -161,12 +189,18 @@ Letter(
  "e",
  "∠G(jw) = " + format(phaseSlider,2) + "°"
 );
+// スライダーの値（ω は下、K は上に表示）
+Letter([2.55,-2.8],"s2","角周波数 ω = " + format(wSlider,2) + " rad/s");
+Letter([4.5,4],"n2","曲線の倍率 K = " + format(K,2));
 
 // ==========================================
 // 【14. 軌跡の始点（ω = 0）】
 // ==========================================
-// G(s) が s = 0 で無限大になる場合は w0 = 0.01 などにする
+// G(s) が s = 0 で無限大になる場合（1/(s(s+1)) など）は w0 = 0.01 にする
+// （0 で割ると NaN になり、NaN は自分自身と等しくならないことで判定する）
 w0 = 0;
+r0 = ReVal(w0);
+if(r0 != r0, w0 = 0.01, if(abs(r0) > 10^6, w0 = 0.01));
 crossList = [[w0, ReVal(w0)]];
 
 // ==========================================
@@ -174,11 +208,12 @@ crossList = [[w0, ReVal(w0)]];
 // ==========================================
 // 目盛りの位置は K 倍、ラベルは実際の値
 // ラベルは文字列で書く（Htickmark / Vtickmark はリスト中の数値をすべて目盛りの位置として扱う）
-memori  = [K,"n3","1", -1*K,"n3","-1"];
+// 実軸のラベルは、軸の下だと軌跡と重なるので軸の上（n）に置く
+memori  = [K,"n2","1", -1*K,"n2","-1"];
 memori2 = [K,"w3","1", -1*K,"w3","-1"];
 forall(crossList, cp,
  xc = cp_2;
- memori = concat(memori, [K*xc, "s3", format(xc,4)]);
+ memori = concat(memori, [K*xc, "n2", format(xc,4)]);
 );
 Htickmark(memori);
 Vtickmark(memori2);
@@ -193,6 +228,16 @@ forall(1..length(crossList), n,
    "e",
    "始点 = " + format(crossList_n_2,4)
    + "  (w = " + format(crossList_n_1,3) + ")"
+ );
+);
+
+// 入力した式を読めなかったときは、値の一覧の下に表示する
+if(!Gok,
+ Letter(
+   [-3, 2.7-(length(crossList)+2)*dy],
+   "e",
+   "式を読み取れないため、既定の式で描いています",
+   ["Color=red"]
  );
 );
 

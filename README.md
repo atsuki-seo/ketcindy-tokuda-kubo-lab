@@ -58,7 +58,12 @@ Letter([-3,2.7-dy], "e", "2行目");
 
 ### 注意（実際の KeTJS 出力との差）
 - Cinderella の作図要素（`.cdy` の点など）は、スクリプトの `Putpoint` / `Slider` から推定して宣言している。
-- `Textedit` / `subsedit` など Cinderella 専用の機能は、HTML 版では動かない。
+  点の初期位置は、Cinderella でスクリプトが初めて点を作るときと同じにする
+  （`Putpoint` は第 2 引数、`Slider` のつまみは両端の中点）。
+- 表示範囲も `.cdy` がないため、`Setwindow` の範囲とスライダー全体が入る範囲に余白 0.5 を足して決めている。
+- 入力欄は `Textedit(番号)` で読める（`Text番号` を入力欄として宣言する）。Enter を押すと描き直す。
+  入力欄の初期値は空なので、既定値はスクリプト側で入れる（例: [src/nyquist_g4.cs](src/nyquist_g4.cs) の「1. 伝達関数 G(s) の定義」）。
+- `subsedit` など Cinderella 専用の機能は、HTML 版では動かない。
 - 最終確認は Cinderella の KeTJS ボタンで出した HTML でも行うこと
   （`File > Export to CindyJS` → KeTJS / KeTJSoff）。
 
