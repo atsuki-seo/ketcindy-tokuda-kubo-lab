@@ -173,8 +173,9 @@ crossList = [[w0, ReVal(w0)]];
 // 【15. 座標メモリ（始点を追加）】
 // ==========================================
 // 目盛りの位置は K 倍、ラベルは実際の値
-memori  = [K,"n3",1, -1*K,"n3",-1];
-memori2 = [K,"w3",1, -1*K,"w3",-1];
+// ラベルは文字列で書く（Htickmark / Vtickmark はリスト中の数値をすべて目盛りの位置として扱う）
+memori  = [K,"n3","1", -1*K,"n3","-1"];
+memori2 = [K,"w3","1", -1*K,"w3","-1"];
 forall(crossList, cp,
  xc = cp_2;
  memori = concat(memori, [K*xc, "s3", format(xc,4)]);
