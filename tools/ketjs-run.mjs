@@ -155,13 +155,20 @@ console.log(
     (layout.canvas ? ` / キャンバス ${layout.canvas}` : ""),
 );
 
-// ページ全体を撮る（見出しの下にあるキャンバスまで入るように）
+// ページ全体を撮る（見出しの下にあるキャンバスまで入るように）。
+// captureBeyondViewport は撮影中に画面サイズを変えるため、CindyJS がキャンバスを消して描き直す途中を
+// 撮ってしまい、白紙になることがある。先に画面の高さをページ全体に広げ、描き直しを待ってから撮る。
 const { cssContentSize } = (await send("Page.getLayoutMetrics")).result;
-const png = await send("Page.captureScreenshot", {
-  format: "png",
-  captureBeyondViewport: true,
-  clip: { x: 0, y: 0, width: cssContentSize.width, height: cssContentSize.height, scale: 1 },
+const viewWidth = viewport ? Number(viewport[1]) : layout.view;
+const viewHeight = viewport ? Number(viewport[2]) : 0;
+await send("Emulation.setDeviceMetricsOverride", {
+  width: viewWidth,
+  height: Math.max(Math.ceil(cssContentSize.height), viewHeight),
+  deviceScaleFactor: viewport && viewWidth < 768 ? 2 : 1,
+  mobile: Boolean(viewport) && viewWidth < 768,
 });
+await new Promise((r) => setTimeout(r, 1000));
+const png = await send("Page.captureScreenshot", { format: "png" });
 writeFileSync(shot, Buffer.from(png.result.data, "base64"));
 
 ws.close();
