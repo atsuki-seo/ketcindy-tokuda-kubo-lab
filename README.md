@@ -37,7 +37,24 @@ node tools/ketjs-run.mjs build/html/nyquist_g4.html \
 - 共通のスタイルと校章は `assets/` にあり、ビルド時に `build/html/assets/` へコピーされる。
   配色・書体・校章は [NITYC-MCC-Tools](https://github.com/atsuki-seo/NITYC-MCC-Tools) の授業資料に合わせている。
 - 狭い画面ではキャンバス内の文字（`Letter` など）は縮まず KeTJS と同じ大きさのままなので、
-  文字が密集している教材では重なって見えることがある。
+  座標で決めた間隔のままだと文字どうしが重なることがある（下記で対処する）。
+
+### 狭い画面で文字を重ならせない書き方
+`Letter` などで文字を縦や横に並べるときは、間隔を px で指定する。
+HTML 版では描画のたびに `Ketjspx`（画面上の 1px が何座標分か）が計算されるので、
+`16*Ketjspx` と書けば、画面幅によらず 16px の間隔になる。
+
+```
+dy = 0.3;                  // Cinderella・TeX 出力用（座標）
+//dy = 16*Ketjspx; //only ketjs
+Letter([-3,2.7],    "e", "1行目");
+Letter([-3,2.7-dy], "e", "2行目");
+```
+
+- `//...//only ketjs` の行は HTML 版でだけ実行される（KeTCindy の決まり）。
+  `Ketjspx` は HTML 版にしかないので、Cinderella 側の値は通常の行で別に書いておく。
+- 行間の目安は、文字の大きさ 12px に対して 16px 程度。
+- 例: [src/nyquist_g4.cs](src/nyquist_g4.cs) の「13. スライダー位置のゲイン・位相差」
 
 ### 注意（実際の KeTJS 出力との差）
 - Cinderella の作図要素（`.cdy` の点など）は、スクリプトの `Putpoint` / `Slider` から推定して宣言している。

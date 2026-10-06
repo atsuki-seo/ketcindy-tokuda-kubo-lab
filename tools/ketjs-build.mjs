@@ -11,6 +11,10 @@
 //
 // ページの見出しは、スクリプト中の「// @title 見出し」行から取る（なければファイル名）。
 // コメント行なので Cinderella 上の動作には影響しない。
+//
+// HTML 版では、描画のたびに Ketjspx（画面上の 1px が何座標分か）を計算してからスクリプトを実行する。
+// キャンバスは画面幅に合わせて縮むが文字の大きさは変わらないので、文字を並べる間隔は
+// 「//dy=16*Ketjspx; //only ketjs」のように px で指定すると、狭い画面でも重ならない。
 
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -162,6 +166,7 @@ ${headCommon()}
 ${initLines.join("\n")}
 </script>
 <script id="csdraw" type="text/x-cindyscript">
+Ketjspx=1/screenresolution();
 ${drawLines.join("\n")}
 </script>
     <script type="text/javascript">

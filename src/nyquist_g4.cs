@@ -148,13 +148,16 @@ AA.xy=pSlider*K;
 // ==========================================
 magSlider = Gain(wSlider);
 phaseSlider = Phasedeg(wSlider);
+// 文字の行間。HTML 版は画面幅に合わせて図が縮むので、16px で固定して重ならないようにする
+dy = 0.3;
+//dy = 16*Ketjspx; //only ketjs
 Letter(
  [-3,2.7],
  "e",
  "|G(jw)| = " + format(magSlider,2)
 );
 Letter(
- [-3,2.4],
+ [-3,2.7-dy],
  "e",
  "∠G(jw) = " + format(phaseSlider,2) + "°"
 );
@@ -185,7 +188,7 @@ if(length(crossList) > 0,
 // 始点の値を画面に表示
 forall(1..length(crossList), n,
  Letter(
-   [-3, 2.1-0.3*(n-1)],
+   [-3, 2.7-(n+1)*dy],
    "e",
    "始点 = " + format(crossList_n_2,4)
    + "  (w = " + format(crossList_n_1,3) + ")"
