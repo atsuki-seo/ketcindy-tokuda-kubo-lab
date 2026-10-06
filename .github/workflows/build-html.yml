@@ -54,11 +54,21 @@ jobs:
             --assert '=Gain(1)|0.024254|1e-5' \
             --assert '=length(ptList)|1501|0'
 
+      - name: Make index.html
+        run: node tools/make-index.mjs build/html
+
       - uses: actions/upload-artifact@v4
         with:
           name: html
           path: build/html
           if-no-files-found: error
+
+      # Pages 用の成果物は main のときだけ作る（PR では公開しない）
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/html
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -66,3 +76,19 @@ jobs:
           name: screenshot
           path: build/shot.png
           if-no-files-found: ignore
+
+  # GitHub Pages へ公開する（main へのプッシュ / 手動実行のときだけ）
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
