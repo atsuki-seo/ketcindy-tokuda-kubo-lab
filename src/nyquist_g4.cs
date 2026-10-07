@@ -179,13 +179,14 @@ phaseSlider = Phasedeg(wSlider);
 // 文字の行間。HTML 版は画面幅に合わせて図が縮むので、16px で固定して重ならないようにする
 dy = 0.3;
 //dy = 16*Ketjspx; //only ketjs
+// 値の一覧は、縦軸の目盛りの数字（軸の左）と重ならず、軌跡もあまり通らない右上に置く
 Letter(
- [-3,2.7],
+ [0.6,3.4],
  "e",
  "|G(jw)| = " + format(magSlider,2)
 );
 Letter(
- [-3,2.7-dy],
+ [0.6,3.4-dy],
  "e",
  "∠G(jw) = " + format(phaseSlider,2) + "°"
 );
@@ -206,17 +207,46 @@ crossList = [[w0, ReVal(w0)]];
 // ==========================================
 // 【15. 座標メモリ（始点を追加）】
 // ==========================================
-// 目盛りの位置は K 倍、ラベルは実際の値
+// 曲線は K 倍して描くので、目盛りは「画面上の間隔」で決め、数字（実際の値）を K に合わせて変える。
+// 刻みは 1, 2, 5 × 10^n から、画面上の間隔が mingap 以上になる最小のものを選ぶ
+// （K を動かしても目盛りは画面内に残り、数字が 0.05 → 0.1 → 0.2 … と切り替わる）
+// mingap は HTML 版では 40px にして、狭い画面でも数字どうしが重ならないようにする
+mingap = 1;
+//mingap = max([1, 40*Ketjspx]); //only ketjs
+tmp = 10^floor(log(mingap/K)/log(10));
+step = 100*tmp;
+forall([10,5,2,1], m, if(K*m*tmp >= mingap, step = m*tmp));
 // ラベルは文字列で書く（Htickmark / Vtickmark はリスト中の数値をすべて目盛りの位置として扱う）
 // 実軸のラベルは、軸の下だと軌跡と重なるので軸の上（n）に置く
-memori  = [K,"n2","1", -1*K,"n2","-1"];
-memori2 = [K,"w3","1", -1*K,"w3","-1"];
+// 始点の値と重なる実軸の目盛りは省く（始点の値は別に表示する）
+memori  = [];
+memori2 = [];
+forall(1..floor((XMAX-0.5)/(K*step)), n,
+ forall([n*step, -n*step], u,
+   if(min(apply(crossList, abs(K*u - K*#_2))) >= mingap,
+     memori = concat(memori, [K*u, "n2", format(u,4)]);
+   );
+ );
+);
+forall(1..floor((YMAX-0.5)/(K*step)), n,
+ forall([n*step, -n*step], u,
+   memori2 = concat(memori2, [K*u, "w3", format(u,4)]);
+ );
+);
 forall(crossList, cp,
  xc = cp_2;
  memori = concat(memori, [K*xc, "n2", format(xc,4)]);
 );
 Htickmark(memori);
 Vtickmark(memori2);
+// −1 の点（ナイキストの安定判別で軌跡との位置関係を見る点）に赤い × を付ける
+mr = 0.12;
+//mr = 6*Ketjspx; //only ketjs
+minusin = (-K >= XMIN);
+if(minusin,
+ Listplot("m1a", [[-K-mr,-mr],[-K+mr,mr]], ["Color=red","dr,2"]);
+ Listplot("m1b", [[-K-mr,mr],[-K+mr,-mr]], ["Color=red","dr,2"]);
+);
 // 始点に点を打つ
 if(length(crossList) > 0,
  Pointdata("cross", apply(crossList, [K*#_2, 0]), ["Size=4","Color=red"]);
@@ -224,19 +254,24 @@ if(length(crossList) > 0,
 // 始点の値を画面に表示
 forall(1..length(crossList), n,
  Letter(
-   [-3, 2.7-(n+1)*dy],
+   [0.6, 3.4-(n+1)*dy],
    "e",
    "始点 = " + format(crossList_n_2,4)
    + "  (w = " + format(crossList_n_1,3) + ")"
  );
 );
 
-// 入力した式を読めなかったときは、値の一覧の下に表示する
+// 値の一覧の続き。−1 の点が画面外のときと、入力した式を読めなかったときに表示する
+nline = length(crossList) + 2;
+if(!minusin,
+ Letter([0.6, 3.4-nline*dy], "e", "-1 の点は画面外（K を下げると表示）");
+ nline = nline + 1;
+);
 if(!Gok,
  Letter(
-   [-3, 2.7-(length(crossList)+2)*dy],
+   [0.6, 3.4-nline*dy],
    "e",
-   "式を読み取れないため、既定の式で描いています",
+   "式を読めないため既定の式で表示",
    ["Color=red"]
  );
 );
