@@ -8,16 +8,35 @@
 // assets/ と ketcindyjs/ は出力ディレクトリ直下に 1 つだけ置き、各ページからは相対パスで参照する。
 // リンクもすべて相対パスなので、GitHub Pages でも、ローカルで build/html を直接開いても同じようにたどれる。
 
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// KeTCindy 一式の scripts ディレクトリ（環境変数 KETCINDY_HOME、既定 ~/ketcindy）
+export const KETCINDY_SCRIPTS = join(process.env.KETCINDY_HOME ?? join(homedir(), "ketcindy"), "ketcindyfolder", "scripts");
 
 export const SCHOOL = "弓削商船高等専門学校";
 export const INDEX_TITLE = "教材一覧";
 
 // 科目の一覧。教材のスクリプトには「// @category 科目名」で科目を書く。
 // slug は URL（ディレクトリ名）に使う英字の名前。一覧はこの表の順に並ぶ。
-export const CATEGORIES = [{ slug: "control", name: "制御工学" }];
+// chapters があると、科目の一覧ページを章の見出しで分け、教材を単元（// @unit）の順に並べる。
+// 章は units に挙げた単元の教材をまとめる。drill: true の章には練習問題のページを並べる。
+export const CATEGORIES = [
+  { slug: "control", name: "制御工学" },
+  {
+    slug: "math2",
+    name: "数学2",
+    chapters: [
+      { name: "点と直線", units: [1, 2, 3] },
+      { name: "円と2次曲線", units: [5, 6, 7, 8, 9, 10] },
+      { name: "不等式と領域", units: [11] },
+      { name: "ベクトル", units: [12, 13, 14] },
+      { name: "練習問題", drill: true },
+    ],
+  },
+];
 
 export const categoryByName = (name) => CATEGORIES.find((c) => c.name === name);
 export const categoryBySlug = (slug) => CATEGORIES.find((c) => c.slug === slug);
@@ -32,6 +51,16 @@ export const escapeHtml = (s) =>
 export function copyAssets(outDir) {
   mkdirSync(join(outDir, "assets"), { recursive: true });
   for (const f of ASSET_FILES) copyFileSync(join(ASSETS_SRC, f), join(outDir, "assets", f));
+}
+
+// 出力ディレクトリに ketcindyjs/（CindyJS 本体と KaTeX）を置く
+export function copyCindyJs(outDir) {
+  const src = join(KETCINDY_SCRIPTS, "ketcindyjs");
+  mkdirSync(join(outDir, "ketcindyjs"), { recursive: true });
+  for (const f of ["Cindy.js", "Cindy.js.map", "CindyJS.css", "katex-plugin.js", "webfont.js"]) {
+    if (existsSync(join(src, f))) copyFileSync(join(src, f), join(outDir, "ketcindyjs", f));
+  }
+  cpSync(join(src, "katex"), join(outDir, "ketcindyjs", "katex"), { recursive: true });
 }
 
 // 以下の root は、そのページから出力ディレクトリ直下への相対パス（直下のページは ""、科目の下は "../"）。
@@ -74,3 +103,40 @@ export function docFoot({ back, root = "" } = {}) {
 }
 
 export const pageTitle = (title) => `${title} | ${SCHOOL}`;
+
+// 教材ページの情報（単元など）を一覧ページへ渡す <meta>。make-index.mjs が読む。
+// info は { unit, unitName, order, kind } のうち値のあるものだけを書く。
+export function pageMeta(info) {
+  return Object.entries(info)
+    .filter(([, v]) => v !== undefined && v !== "")
+    .map(([k, v]) => `<meta name="ket-${k}" content="${escapeHtml(v)}">`)
+    .join("\n");
+}
+
+export function readPageMeta(html) {
+  const info = {};
+  for (const m of html.matchAll(/<meta name="ket-([a-zA-Z]+)" content="([^"]*)">/g)) info[m[1]] = m[2];
+  return info;
+}
+
+// 単元のタグ（例: 「単元7 楕円の式」）
+export const unitTag = (unit, unitName) =>
+  unit ? `<span class="unit-tag">単元${escapeHtml(unit)}${unitName ? ` ${escapeHtml(unitName)}` : ""}</span>` : "";
+
+// 前後の教材へのリンク。make-index.mjs が <!--pager--> と <!--/pager--> の間を書き換える。
+export const PAGER_START = "<!--pager-->";
+export const PAGER_END = "<!--/pager-->";
+export const pagerSlot = () => `${PAGER_START}${PAGER_END}`;
+// noun は「教材」「練習」などのページの呼び方
+export function pager(prev, next, noun = "教材") {
+  if (!prev && !next) return "";
+  const link = (p, rel, label) =>
+    p
+      ? `<a class="pager-${rel}" rel="${rel}" href="${escapeHtml(encodeURI(p.file))}">` +
+        `<span class="pager-label">${label}</span><span class="pager-title">${escapeHtml(p.title)}</span></a>`
+      : `<span class="pager-${rel}"></span>`;
+  return `<nav class="pager" aria-label="前後の${noun}">
+  ${link(prev, "prev", `前の${noun}`)}
+  ${link(next, "next", `次の${noun}`)}
+</nav>`;
+}
