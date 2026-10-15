@@ -50,14 +50,14 @@ jobs:
           CHROME: /usr/bin/google-chrome
           CHROME_ARGS: --no-sandbox
         run: |
-          node tools/ketjs-run.mjs build/html/nyquist_g4.html \
+          node tools/ketjs-run.mjs build/html/control/nyquist_g4.html \
             --shot build/shot.png \
             --assert '=ReVal(1)|-0.005882|1e-5' \
             --assert '=ImVal(1)|-0.023529|1e-5' \
             --assert '=Gain(1)|0.024254|1e-5' \
             --assert '=length(ptList)|1501|0'
           # 入力欄の式（* を省略した書き方）で G(s) が変わること。4/((1+j)(2+j)) = 0.4 - 1.2j
-          node tools/ketjs-run.mjs build/html/nyquist_g4.html \
+          node tools/ketjs-run.mjs build/html/control/nyquist_g4.html \
             --shot build/shot-input.png \
             --eval 'Text0.currenttext="4/((s+1)(s+2))";' \
             --assert '=ReVal(1)|0.4|1e-6' \
@@ -70,8 +70,10 @@ jobs:
           CHROME_ARGS: --no-sandbox
         run: |
           mkdir -p build/shots
-          for f in build/html/*.html; do
-            name=$(basename "$f" .html)
+          for f in build/html/index.html build/html/*/*.html; do
+            case "$f" in build/html/assets/* | build/html/ketcindyjs/*) continue ;; esac
+            # control/nyquist_g4.html → control_nyquist_g4
+            name=$(echo "${f#build/html/}" | sed 's|/|_|g; s|\.html$||')
             for v in 390x844 820x1180; do
               node tools/ketjs-run.mjs "$f" --viewport "$v" --shot "build/shots/$name-$v.png"
             done

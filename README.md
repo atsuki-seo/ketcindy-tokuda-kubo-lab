@@ -17,9 +17,9 @@ KeTCindyJS が HTML を作る処理（KeTJS ボタン相当）を `tools/ketjs-b
 
 ### 使い方
 ```bash
-node tools/ketjs-build.mjs src/nyquist_g4.cs        # → build/html/nyquist_g4.html
-node tools/make-index.mjs build/html                # → build/html/index.html（教材一覧）
-node tools/ketjs-run.mjs build/html/nyquist_g4.html \
+node tools/ketjs-build.mjs src/nyquist_g4.cs        # → build/html/control/nyquist_g4.html
+node tools/make-index.mjs build/html                # → build/html/index.html（教材一覧）と control/index.html
+node tools/ketjs-run.mjs build/html/control/nyquist_g4.html \
   --assert '=ReVal(1)|-0.005882|1e-5' --shot build/shot.png
 ```
 - `--assert '=式|期待値|許容誤差'`: CindyScript の式の値を照合する（失敗で終了コード 1）
@@ -29,12 +29,25 @@ node tools/ketjs-run.mjs build/html/nyquist_g4.html \
 - ページ幅が画面幅を超える（横スクロールが出る）と失敗にする
 
 ### 公開ページの構成
-- `index.html`（教材一覧）と各教材ページは、スマートフォン・タブレットでも表示できる。
+教材は「科目 → 教材」の階層で並ぶ。URL には科目の英字名（slug）を使う。
+
+```
+index.html                  ← 教材一覧（科目の一覧と件数）
+control/index.html          ← 制御工学の教材の一覧
+control/nyquist_g4.html     ← 教材ページ
+```
+
+- 教材の科目は、スクリプト先頭などに書いた `// @category 科目名` で指定する（必須。ないとビルドが失敗する）。
+- 科目名と slug の対応は [tools/site.mjs](tools/site.mjs) の `CATEGORIES` にまとめてある。新しい科目の教材を作るときは、
+  先にここへ `{ slug: "circuit", name: "電気回路" }` のように追加する。一覧ページの科目はこの表の順に並ぶ。
+- 一覧ページ（教材一覧・科目ごとの一覧）は `make-index.mjs` がビルド後の HTML から作る。
+- 一覧ページと各教材ページは、スマートフォン・タブレットでも表示できる。
   キャンバスは画面幅に合わせて縦横比を保ったまま縮み、PC では KeTJS 既定の 742×526 で表示する。
-- 各教材ページの上部にパンくずリスト（教材一覧 ／ 教材名）を表示する。
+- 各ページの上部にパンくずリスト（教材一覧 ／ 科目名 ／ 教材名）を表示する。
 - 教材ページの見出しは、スクリプト先頭などに書いた `// @title 見出し` から取る（なければファイル名）。
   コメント行なので Cinderella 上の動作には影響しない。
 - 共通のスタイルと校章は `assets/` にあり、ビルド時に `build/html/assets/` へコピーされる。
+  `assets/` と KeTCindyJS のライブラリ（`ketcindyjs/`）は出力ディレクトリ直下に 1 つだけ置き、科目の下のページからは `../` で参照する。
   配色・書体・校章は [NITYC-MCC-Tools](https://github.com/atsuki-seo/NITYC-MCC-Tools) の授業資料に合わせている。
 - 狭い画面ではキャンバス内の文字（`Letter` など）は縮まず KeTJS と同じ大きさのままなので、
   座標で決めた間隔のままだと文字どうしが重なることがある（下記で対処する）。

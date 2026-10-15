@@ -10,7 +10,9 @@
 // 環境変数: KETCINDY_HOME（既定 ~/ketcindy）
 //
 // ページの見出しは、スクリプト中の「// @title 見出し」行から取る（なければファイル名）。
-// コメント行なので Cinderella 上の動作には影響しない。
+// 科目は「// @category 科目名」行で指定し（必須）、出力ディレクトリの下の科目のディレクトリに書き出す
+// （例: src/nyquist_g4.cs → build/html/control/nyquist_g4.html）。科目名は tools/site.mjs の CATEGORIES から選ぶ。
+// どちらもコメント行なので Cinderella 上の動作には影響しない。
 //
 // HTML 版では、描画のたびに Ketjspx（画面上の 1px が何座標分か）を計算してからスクリプトを実行する。
 // キャンバスは画面幅に合わせて縮むが文字の大きさは変わらないので、文字を並べる間隔は
@@ -19,7 +21,18 @@
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
-import { INDEX_TITLE, breadcrumb, copyAssets, docFoot, docHead, escapeHtml, headCommon, pageTitle } from "./site.mjs";
+import {
+  CATEGORIES,
+  INDEX_TITLE,
+  breadcrumb,
+  categoryByName,
+  copyAssets,
+  docFoot,
+  docHead,
+  escapeHtml,
+  headCommon,
+  pageTitle,
+} from "./site.mjs";
 
 const HOME = process.env.KETCINDY_HOME ?? join(homedir(), "ketcindy");
 const SCRIPTS = join(HOME, "ketcindyfolder", "scripts");
@@ -106,9 +119,22 @@ function extractAll(name) {
 }
 
 const srcLines = readLines(srcPath);
-const title =
-  srcLines.map((l) => l.match(/^\s*\/\/\s*@title\s+(.+?)\s*$/)?.[1]).find(Boolean) ??
-  basename(srcPath).replace(/\.cs$/, "");
+const tag = (name) =>
+  srcLines.map((l) => l.match(new RegExp(`^\\s*//\\s*@${name}\\s+(.+?)\\s*$`))?.[1]).find(Boolean);
+const title = tag("title") ?? basename(srcPath).replace(/\.cs$/, "");
+const categoryName = tag("category");
+const category = categoryByName(categoryName);
+if (!category) {
+  const known = CATEGORIES.map((c) => c.name).join("、");
+  console.error(
+    categoryName
+      ? `科目「${categoryName}」は tools/site.mjs の CATEGORIES にありません（${known}）。`
+      : `${srcPath} に「// @category 科目名」の行がありません（科目: ${known}）。`,
+  );
+  process.exit(2);
+}
+// 教材ページは科目のディレクトリの下に置くので、assets/ などは 1 つ上を参照する
+const ROOT = "../";
 const drawLines = filterKetjs(srcLines);
 for (const fn of extractFunNames(drawLines)) extractAll(fn);
 
@@ -185,14 +211,14 @@ const draggable = pointNames.size > 0;
 const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
-${headCommon()}
+${headCommon(ROOT)}
 <title>${escapeHtml(pageTitle(title))}</title>
     <style type="text/css">
         #CSConsole { background-color: #FAFAFA; border-top: 1px solid #333333; bottom: 0px;
             height: 200px; overflow-y: scroll; position: fixed; width: 100%; }
     </style>
-    <link rel="stylesheet" href="ketcindyjs/CindyJS.css">
-    <script type="text/javascript" src="ketcindyjs/Cindy.js"></script>
+    <link rel="stylesheet" href="${ROOT}ketcindyjs/CindyJS.css">
+    <script type="text/javascript" src="${ROOT}ketcindyjs/Cindy.js"></script>
 <script id="csinit" type="text/x-cindyscript">
 ${initLines.join("\n")}
 </script>
@@ -222,9 +248,9 @@ var cdy = CindyJS({
 <body>
 <div class="wrap">
 
-${breadcrumb([[INDEX_TITLE, "index.html"], [title]])}
+${breadcrumb([[INDEX_TITLE, `${ROOT}index.html`], [category.name, "index.html"], [title]])}
 
-${docHead(title)}
+${docHead(title, category.name, ROOT)}
 
 <main>
   <div class="stage" style="--stage-max: ${CANVAS_W}px; --stage-ratio: ${CANVAS_W} / ${CANVAS_H};">
@@ -232,7 +258,7 @@ ${docHead(title)}
   </div>${draggable ? `\n  <p class="stage-note">スライダーや点は、ドラッグ（スマートフォン・タブレットではタッチ）で動かせます。</p>` : ""}
 </main>
 
-${docFoot({ backToIndex: true })}
+${docFoot({ back: [`${category.name}の${INDEX_TITLE}`, "index.html"], root: ROOT })}
 
 </div>
 </body>
@@ -247,7 +273,8 @@ for (const f of ["Cindy.js", "Cindy.js.map", "CindyJS.css", "katex-plugin.js", "
 }
 cpSync(join(SCRIPTS, "ketcindyjs", "katex"), join(outDir, "ketcindyjs", "katex"), { recursive: true });
 
-const outFile = join(outDir, basename(srcPath).replace(/\.cs$/, "") + ".html");
+mkdirSync(join(outDir, category.slug), { recursive: true });
+const outFile = join(outDir, category.slug, basename(srcPath).replace(/\.cs$/, "") + ".html");
 writeFileSync(outFile, html);
 console.log(`生成: ${outFile}`);
 console.log(`関数: ${out.length} 個 / csinit ${initLines.length} 行 / csdraw ${drawLines.length} 行`);
