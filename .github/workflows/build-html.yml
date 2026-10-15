@@ -35,10 +35,21 @@ jobs:
           unzip -q ketcindy.zip -d "$RUNNER_TEMP/ketcindy-unzip"
           mv "$RUNNER_TEMP/ketcindy-unzip/ketcindy" ~/ketcindy
 
+      # 練習問題の生成・判定を、シードを固定して大量に確かめる（Chrome は使わない）
+      - name: Check drill generators
+        run: node tools/drill-check.mjs 1000
+
       - name: Build HTML
         run: |
-          for f in src/*.cs; do
+          # 教材（src/*.cs と、科目ごとのディレクトリの src/*/*.cs・src/*/*.cdy）
+          for f in src/*.cs src/*/*.cs src/*/*.cdy; do
+            [ -e "$f" ] || continue
             node tools/ketjs-build.mjs "$f" build/html
+          done
+          # 練習問題（src/*/drill-*.json）
+          for f in src/*/drill-*.json; do
+            [ -e "$f" ] || continue
+            node tools/drill-build.mjs "$f" build/html
           done
 
       - name: Make index.html
@@ -62,6 +73,13 @@ jobs:
             --eval 'Text0.currenttext="4/((s+1)(s+2))";' \
             --assert '=ReVal(1)|0.4|1e-6' \
             --assert '=ImVal(1)|-1.2|1e-6'
+
+      # 数学2の教材の値（接する C、PF₁ + PF₂ など）と、練習問題の自己テストを照合する
+      - name: Verify math2 pages
+        env:
+          CHROME: /usr/bin/google-chrome
+          CHROME_ARGS: --no-sandbox
+        run: bash tools/check-math2.sh
 
       # スマートフォン・タブレットの画面幅で全ページを開き、横スクロールが出ないことを確かめる
       - name: Verify layout on phone / tablet
