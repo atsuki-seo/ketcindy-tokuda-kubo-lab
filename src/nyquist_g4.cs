@@ -75,16 +75,16 @@ iVal = ImVal(w);
 println("======================================");
 println("    【 周波数応答の計算結果 】");
 println("======================================");
-println("  設定角周波数 (w) : " + w + " [rad/s]");
+println("  設定角周波数 (ω) : " + w + " [rad/s]");
 println("--------------------------------------");
-println("  複素数 G(jw)    : "
+println("  複素数 G(jω)    : "
        + format(rVal,6)
        + " + "
        + format(iVal,6)
        + " j");
-println("  実部 Re[G(jw)]  : "
+println("  実部 Re[G(jω)]  : "
        + format(rVal,6));
-println("  虚部 Im[G(jw)]  : "
+println("  虚部 Im[G(jω)]  : "
        + format(iVal,6));
 println("--------------------------------------");
 println("  位相差 (rad)    : "
@@ -184,12 +184,12 @@ dy = 0.3;
 Letter(
  [0.6,3.4],
  "e",
- "|G(jw)| = " + format(magSlider,2)
+ "|G(jω)| = " + format(magSlider,2)
 );
 Letter(
  [0.6,3.4-dy],
  "e",
- "∠G(jw) = " + format(phaseSlider,2) + "°"
+ "∠G(jω) = " + format(phaseSlider,2) + "°"
 );
 // スライダーの値（ω は下、K は上に表示）
 Letter([2.55,-2.8],"s2","角周波数 ω = " + format(wSlider,2) + " rad/s");
@@ -258,7 +258,7 @@ forall(1..length(crossList), n,
    [0.6, 3.4-(n+1)*dy],
    "e",
    "始点 = " + format(crossList_n_2,4)
-   + "  (w = " + format(crossList_n_1,3) + ")"
+   + "  (ω = " + format(crossList_n_1,3) + ")"
  );
 );
 
