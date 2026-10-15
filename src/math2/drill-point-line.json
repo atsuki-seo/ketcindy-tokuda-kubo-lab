@@ -1,0 +1,7 @@
+{
+  "title": "練習: 点と直線",
+  "category": "数学2",
+  "order": 1,
+  "lead": "前期期末の過去問と同じ型の問題を、数値を変えて何度でも練習できる（単元1〜3）。",
+  "types": ["distance", "division", "linePointSlope", "lineTwoPoints", "lineParallelPerp", "symmetricPoint"]
+}

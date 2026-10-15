@@ -1,0 +1,7 @@
+{
+  "title": "練習: ベクトル",
+  "category": "数学2",
+  "order": 4,
+  "lead": "後期期末の過去問と同じ型の問題を、数値を変えて何度でも練習できる（単元12〜14）。",
+  "types": ["unitVector", "perpParallelX", "linearCombination"]
+}
